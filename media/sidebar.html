@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <link rel="stylesheet" href="__CODICON_CSS__">
+  <meta charset="UTF-8">
+  <title>Version Control</title>
+  <style>
+    :root {
+      --blue: #3574f0;
+      --green: #89d185;
+      --red: #f48771;
+      --text: #dee0e4;
+      --bg: #1e1e1e;
+      --checkbox-bg: #1e1f22;
+      --push-bg: #2b2d30;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-size: 13px;
+      font-family: var(--vscode-editor-font-family, monospace);
+      padding: 6px 10px;
+      color: var(--text);
+    }
+
+    #mainLists {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+
+    .commit-box {
+      border-top: 1px solid #444;
+      padding-top: 8px;
+      background: var(--bg);
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      font-weight: 600;
+      margin: 2px 0;
+      user-select: none;
+    }
+
+    .section-header input[type="checkbox"] {
+      margin-right: 6px;
+      margin-left: 4px;
+    }
+
+    .toggle-arrow {
+      display: inline-block;
+      transition: transform 0.15s ease;
+      font-size: 10px;
+      margin-right: 4px;
+      width: 10px;
+    }
+
+    .collapsed .toggle-arrow {
+      transform: rotate(-90deg);
+    }
+
+    ul.file-list {
+      list-style: none;
+      overflow-x: hidden;
+      padding-left: 12px;
+      margin-top: 0;
+      margin-bottom: 6px;
+      border-left: 1px solid #444;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      margin: 2px 0;
+      padding-left: 10px;
+    }
+
+    .file-item input[type="checkbox"] {
+      margin-right: 6px;
+    }
+
+    .file-modified {
+      color: var(--blue);
+    }
+
+    .file-added {
+      color: var(--green);
+    }
+
+    .file-untracked {
+      color: var(--red);
+    }
+
+    textarea {
+      width: 100%;
+      height: 250px;
+      box-sizing: border-box;
+      font-size: 13px;
+      resize: vertical;
+      font-family: var(--vscode-editor-font-family, monospace);
+      background: #1e1e1e;
+      color: #ddd;
+      border: 1px solid #333;
+      padding: 4px;
+    }
+
+    button {
+      margin-top: 6px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-family: var(--vscode-editor-font-family, monospace);
+      background-color: var(--blue);
+      color: var(--text);
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    #pushBtn {
+      background-color: var(--push-bg);
+      outline: gray solid 1px;
+      margin-left: 5px;
+    }
+
+    input[type="checkbox"] {
+      min-width: 14px;
+      height: 14px;
+      background-color: var(--checkbox-bg);
+      border: 1px solid #555;
+      border-radius: 2px;
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+      position: relative;
+    }
+
+    input[type="checkbox"]:checked {
+      background-color: var(--blue);
+    }
+
+    input[type="checkbox"]:indeterminate {
+      background-color: var(--blue);
+    }
+
+    input[type="checkbox"]:indeterminate::after {
+      content: '_';
+      color: white;
+      font-size: 14px;
+      position: absolute;
+      top: -8.5px;
+      left: 2.5px;
+    }
+
+    input[type="checkbox"]:checked::after {
+      content: '✔';
+      color: white;
+      font-size: 11px;
+      position: absolute;
+      left: 2px;
+      top: -1px;
+    }
+
+    .file-item {
+      flex-wrap: nowrap;
+    }
+
+    .file-name {
+      flex: 0 0 auto;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .file-path {
+      flex: 1 1 auto;
+      margin-left: 6px;
+      cursor: text;
+      font-size: 11px;
+      color: #888;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      direction: rtl;
+      text-align: left;
+    }
+
+    #toolbar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    #toolbar .spacer {
+      flex: 1 1 auto;
+    }
+
+    #toolbar button {
+      background: transparent;
+      border: 1px solid #444;
+      border-radius: 3px;
+      font-size: 14px;
+      width: 26px;
+      height: 24px;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    #toolbar button:hover {
+      background: #2a2d2e;
+    }
+
+    .file-item.selected {
+      background: #264F78;
+    }
+
+    #rb-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .55);
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      /* above everything */
+    }
+
+    #rb-overlay[hidden] {
+      display: none !important;
+    }
+
+    #rb-dialog {
+      max-height: 80vh;
+      background: var(--bg);
+      border: 1px solid #555;
+      box-shadow: 0 0 12px #000;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #rb-header {
+      padding: 8px 10px;
+      font-weight: 600;
+      border-bottom: 1px solid #444;
+    }
+
+    #rb-fileList {
+      flex: 1 1 auto;
+      overflow: auto;
+      list-style: none;
+      margin: 0;
+      padding: 8px 12px;
+    }
+
+    #rb-fileList li {
+      display: flex;
+      align-items: center;
+      margin: 2px 0;
+    }
+
+    #rb-fileList li input {
+      margin-right: 6px;
+    }
+
+    #rb-footer {
+      border-top: 1px solid #444;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+    }
+
+    #rb-footer button {
+      margin-left: 6px;
+      padding: 4px 16px;
+    }
+
+    #rb-footer .primary {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    #rb-count {
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    #tabs {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 6px;
+    }
+
+    .tab {
+      flex: 1 1 0;
+      border: none;
+      cursor: pointer;
+      padding: 4px 0;
+      background: #2b2d30;
+      color: var(--text);
+    }
+
+    .tab.active {
+      background: #1e1e1e;
+      border-bottom: 2px solid var(--blue);
+    }
+
+    .commit-list {
+      list-style: none;
+      margin: 0;
+      padding: 0 0 0 2px;
+      overflow-x: hidden;
+    }
+
+    .commit-list li {
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+    }
+
+    #commitPanel {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ── Tabs ─────────────────────────────────────────── -->
+  <div id="tabs">
+    <button id="tabCommit" class="tab active">Commit</button>
+    <button id="tabShelf" class="tab">Shelf</button>
+  </div>
+  <div id="commitPanel" class="panel">
+    <!-- ── Toolbar ─────────────────────────────────────────── -->
+    <div id="toolbar">
+      <button id="btnRefresh" title="Refresh"><i class="codicon codicon-refresh"></i></button>
+      <button id="btnRollback" title="Roll back selected files"><i class="codicon codicon-discard"></i></button>
+      <span class="spacer"></span>
+      <button id="btnCollapse" title="Collapse all"><i class="codicon codicon-collapse-all"></i></button>
+      <button id="btnExpand" title="Expand all"><i class="codicon codicon-expand-all"></i></button>
+    </div>
+    <div id="mainLists">
+      <!-- Changes -->
+      <div class="section" id="changesSection">
+        <div class="section-header" onclick="toggleSection('changes')">
+          <i class="codicon codicon-chevron-down" id="changesChevron"></i>
+          <input type="checkbox" id="selectAllChanges" onclick="event.stopPropagation()">
+          <span>Changes</span>
+        </div>
+        <ul class="file-list" id="stagedList"></ul>
+      </div>
+
+      <!-- Unversioned -->
+      <div class="section" id="untrackedSection">
+        <div class="section-header" onclick="toggleSection('untracked')">
+          <i class="codicon codicon-chevron-down" id="untrackedChevron"></i>
+          <input type="checkbox" id="selectAllUntracked" onclick="event.stopPropagation()">
+          <span>Unversioned Files</span>
+        </div>
+        <ul class="file-list" id="untrackedList"></ul>
+      </div>
+
+
+
+    </div>
+    <!-- Commit box -->
+    <div class="section">
+      <textarea id="commitMsg" placeholder="Commit message..."></textarea>
+      <button id="commitBtn">Commit</button>
+      <button id="pushBtn">Commit and Push...</button>
+    </div>
+    <!-- ── Roll-back (hidden by default) ──────────────────────────── -->
+    <div id="rb-overlay" hidden>
+      <div id="rb-dialog">
+        <div id="rb-header">Rollback Changes</div>
+
+        <ul id="rb-fileList"></ul>
+
+        <div id="rb-footer">
+          <span id="rb-count">0 modified</span>
+          <div>
+            <button id="rb-btnOk" class="primary">Rollback</button>
+            <button id="rb-btnCancel">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="shelfPanel" class="panel" style="display:none;">
+    <ul id="shelfList" class="commit-list"></ul>
+  </div>
+
+  <script>
+    let lastChangesCache = { staged: [], modified: [], not_added: [] };
+
+    const vscode = acquireVsCodeApi();
+
+    const stagedList = document.getElementById('stagedList');
+    const untrackedList = document.getElementById('untrackedList');
+    const selectAllChanges = document.getElementById('selectAllChanges');
+    const selectAllUntracked = document.getElementById('selectAllUntracked');
+    const commitMsg = document.getElementById('commitMsg');
+    const commitBtn = document.getElementById('commitBtn');
+    const pushBtn = document.getElementById('pushBtn');
+
+    const changesChevron = document.getElementById('changesChevron');
+    const untrackedChevron = document.getElementById('untrackedChevron');
+    const tabCommit = document.getElementById('tabCommit');
+    const tabShelf = document.getElementById('tabShelf');
+    const commitPanel = document.getElementById('commitPanel');
+    const shelfPanel = document.getElementById('shelfPanel');
+    const shelfList = document.getElementById('shelfList');
+
+    function switchTab(which) {
+      const commit = which === 'commit';
+      commitPanel.style.display = commit ? 'flex' : 'none';
+      shelfPanel.style.display = commit ? 'none' : 'block';
+      tabCommit.classList.toggle('active', commit);
+      tabShelf.classList.toggle('active', !commit);
+      if (!commit) { vscode.postMessage({ type: 'requestShelf' }); }
+    }
+    tabCommit.addEventListener('click', () => switchTab('commit'));
+    tabShelf.addEventListener('click', () => switchTab('shelf'));
+
+
+    const selectedFiles = new Set();
+
+    function toggleSection(id) {
+      const list = document.getElementById(id === 'changes' ? 'stagedList' : 'untrackedList');
+      const chevron = id === 'changes' ? changesChevron : untrackedChevron;
+
+      const isCollapsed = list.style.display === 'none';
+
+      list.style.display = isCollapsed ? 'block' : 'none';
+
+      chevron.classList.toggle('codicon-chevron-down', isCollapsed);
+      chevron.classList.toggle('codicon-chevron-right', !isCollapsed);
+    }
+
+
+    function addFileItem(container, file, group, status) {
+      const li = document.createElement('li');
+      li.className = `file-item file-${status}`;
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'file-checkbox';
+      cb.dataset.group = group;
+      cb.value = file;
+      cb.checked = selectedFiles.has(file);
+
+      const fileName = file.split(/[/\\]/).pop();
+      const pathTail = file.slice(0, -fileName.length);
+
+      const nameSpan = Object.assign(document.createElement('span'), {
+        className: 'file-name',
+        textContent: fileName
+      });
+      const pathSpan = Object.assign(document.createElement('span'), {
+        className: 'file-path',
+        textContent: pathTail
+      });
+
+      li.append(cb, nameSpan, pathSpan);
+      container.appendChild(li);
+
+      /* ── click anywhere toggles the checkbox ─────────────────── */
+      const toggle = () => {
+        cb.checked = !cb.checked;
+        if (cb.checked) {
+          selectedFiles.add(file);
+          li.classList.add('selected');
+        } else {
+          selectedFiles.delete(file);
+          li.classList.remove('selected');
+        }
+      };
+      /* open diff on double-click (stop row-toggle) */
+      li.addEventListener('dblclick', e => {
+        e.stopPropagation();                 // don’t toggle the checkbox
+        vscode.postMessage({ type: 'openDiff', file });
+      });
+
+      // click on the row (except the actual checkbox which handles itself)
+      li.addEventListener('click', e => {
+        if (e.target === cb || e.detail !== 1) { return; }   // ← NEW guard
+        toggle();
+      });
+      // keep highlight in sync when user clicks the real checkbox
+      cb.addEventListener('change', () => {
+        cb.checked ? li.classList.add('selected') : li.classList.remove('selected');
+        cb.checked ? selectedFiles.add(file) : selectedFiles.delete(file);
+      });
+      cb.addEventListener('change', () => {
+        cb.checked ? selectedFiles.add(file) : selectedFiles.delete(file);
+        li.classList.toggle('selected', cb.checked);
+        updateSelectAllState(cb.dataset.group);
+      });
+
+      // initial highlight
+      if (cb.checked) li.classList.add('selected');
+    }
+
+    window.addEventListener('message', event => {
+      const msg = event.data;
+      if (msg.type === 'fileList') {
+        selectAllChanges.checked = false;
+        selectAllUntracked.checked = false;
+        lastChangesCache = msg.changes;
+        selectedFiles.clear();
+        document.querySelectorAll('.file-checkbox:checked').forEach(cb => selectedFiles.add(cb.value));
+
+        // Clear
+        stagedList.innerHTML = '';
+        untrackedList.innerHTML = '';
+
+        msg.changes.staged?.forEach(file => addFileItem(stagedList, file, 'changes', 'added'));
+        msg.changes.modified?.forEach(file => addFileItem(stagedList, file, 'changes', 'modified'));
+        msg.changes.not_added?.forEach(file => addFileItem(untrackedList, file, 'untracked', 'untracked'));
+
+        document.querySelectorAll('.file-checkbox').forEach(cb => {
+          cb.addEventListener('change', () => {
+            cb.checked ? selectedFiles.add(cb.value) : selectedFiles.delete(cb.value);
+          });
+        });
+        updateSelectAllState('changes');
+        updateSelectAllState('untracked');
+
+      } else if (msg.type === 'shelfList') {
+        shelfList.innerHTML = '';
+        if (!msg.commits.length) {
+          const li = document.createElement('li');
+          li.textContent = 'No unpushed commits';
+          li.style.color = '#888';
+          shelfList.appendChild(li);
+          return;
+        }
+
+        msg.commits.forEach(c => {
+          const li = document.createElement('li');
+          li.textContent = `${c.hash.slice(0, 7)}  ${c.message}`;
+          shelfList.appendChild(li);
+        });
+        return;
+      }
+
+    });
+
+    selectAllChanges.addEventListener('change', () => {
+      document.querySelectorAll('.file-checkbox[data-group="changes"]').forEach(cb => {
+        cb.checked = selectAllChanges.checked;
+        cb.checked ? selectedFiles.add(cb.value) : selectedFiles.delete(cb.value);
+      });
+    });
+
+    selectAllUntracked.addEventListener('change', () => {
+      document.querySelectorAll('.file-checkbox[data-group="untracked"]').forEach(cb => {
+        cb.checked = selectAllUntracked.checked;
+        cb.checked ? selectedFiles.add(cb.value) : selectedFiles.delete(cb.value);
+      });
+    });
+
+    commitBtn.addEventListener('click', () => {
+      const selected = [...selectedFiles];
+      const message = commitMsg.value.trim();
+
+      if (!selected.length) {
+        commitMsg.placeholder = 'Please select files to commit.';
+        commitMsg.focus();
+        return;
+      }
+      if (!message) {
+        commitMsg.placeholder = 'Please enter a commit message.';
+        commitMsg.focus();
+        return;
+      }
+
+      vscode.postMessage({ type: 'commit', files: selected, message });
+      selectedFiles.clear();
+    });
+
+    pushBtn.addEventListener('click', () => {
+      const selected = [...selectedFiles];
+      const message = commitMsg.value.trim();
+
+      if (!selected.length) {
+        commitMsg.placeholder = 'Please select files to commit.';
+        commitMsg.focus();
+        return;
+      }
+
+      if (!message) {
+        commitMsg.placeholder = 'Please enter a commit message.';
+        commitMsg.focus();
+        return;
+      }
+
+      vscode.postMessage({ type: 'commitAndPush', files: selected, message });
+    });
+
+    /* ── toolbar logic ─────────────────────────────────────── */
+    document.getElementById('btnRefresh').addEventListener('click', () => {
+      vscode.postMessage({ type: 'requestRefresh' });
+    });
+
+    function openRollbackModal(preselected, allChanges) {
+      const overlay = document.getElementById('rb-overlay');
+      const listEl = document.getElementById('rb-fileList');
+      const countSpan = document.getElementById('rb-count');
+      const btnOk = document.getElementById('rb-btnOk');
+      const btnClose = document.getElementById('rb-btnCancel');
+
+      listEl.innerHTML = '';
+
+      /* populate list --------------------------------------------------- */
+      const everyFile = [
+        ...allChanges.staged,          // staged edits, renames, deletions
+        ...allChanges.modified         // dirty but not staged yet
+        // leave out  allChanges.not_added those are untracked files (original behaviour on jetbrains)
+      ];
+
+      everyFile.forEach(f => {
+        const li = document.createElement('li');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = f;
+        cb.checked = preselected.includes(f);
+
+        const name = document.createElement('span');
+        name.textContent = f;
+
+        li.append(cb, name);
+        listEl.appendChild(li);
+      });
+
+      /* update modified-count footer ----------------------------------- */
+      const updateCount = () => {
+        const checked = listEl.querySelectorAll('input:checked').length;
+        countSpan.textContent = `${checked} file${checked === 1 ? '' : 's'} selected`;
+        btnOk.disabled = checked === 0;
+      };
+      listEl.addEventListener('change', updateCount);
+      updateCount();
+
+      /* wire buttons ---------------------------------------------------- */
+      btnOk.onclick = () => {
+        const files = [...listEl.querySelectorAll('input:checked')]
+          .map(cb => cb.value);
+        vscode.postMessage({ type: 'rollback', files });
+        overlay.hidden = true;
+      };
+      btnClose.onclick = () => overlay.hidden = true;
+
+      /* show modal */
+      overlay.hidden = false;
+    }
+
+    /* ── toolbar rollback click ───────────────────────────────────────── */
+    document.getElementById('btnRollback').addEventListener('click', () => {
+      const selected = [...selectedFiles];
+      if (!selected.length) {             // nothing ticked in the list
+        vscode.postMessage({ type: 'requestRefresh' });
+        return;
+      }
+      openRollbackModal(selected, lastChangesCache);
+    });
+
+
+    document.getElementById('btnCollapse').addEventListener('click', () => {
+      collapseSections(true);
+    });
+    document.getElementById('btnExpand').addEventListener('click', () => {
+      collapseSections(false);
+    });
+
+    function collapseSections(collapsed) {
+      ['changes', 'untracked'].forEach(id => {
+        const list = document.getElementById(id === 'changes' ? 'stagedList' : 'untrackedList');
+        const chevron = id === 'changes' ? changesChevron : untrackedChevron;
+        list.style.display = collapsed ? 'none' : 'block';
+        chevron.classList.toggle('codicon-chevron-down', !collapsed);
+        chevron.classList.toggle('codicon-chevron-right', collapsed);
+      });
+    }
+
+    // Expand by default
+    stagedList.style.display = 'block';
+
+    vscode.postMessage({ type: 'ready' });
+
+    untrackedList.style.display = 'block';
+    function updateSelectAllState(group) {
+      const checkboxes = document.querySelectorAll(`.file-checkbox[data-group="${group}"]`);
+      const selectAll = document.getElementById(group === 'changes' ? 'selectAllChanges' : 'selectAllUntracked');
+
+      const total = checkboxes.length;
+      const checked = [...checkboxes].filter(cb => cb.checked).length;
+
+      if (checked === 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+      } else if (checked === total) {
+        selectAll.checked = true;
+        selectAll.indeterminate = false;
+      } else {
+        selectAll.checked = false;
+        selectAll.indeterminate = true;
+      }
+    }
+
+  </script>
+</body>
+
+</html>
