@@ -14,7 +14,7 @@
   "icon": "icon.png",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/ASRepairs/JetBrains-Version-Control"
   },
   "license": "MIT",
   "publisher": "ASRepairs",
