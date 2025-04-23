@@ -3,17 +3,17 @@ import * as simpleGit from 'simple-git';
 import * as path from 'path';
 
 export function activate(context: vscode.ExtensionContext) {
-	const provider = new VersionControlViewProvider(context.extensionUri);
-	context.subscriptions.push(
-	  vscode.window.registerWebviewViewProvider(
-		VersionControlViewProvider.viewType,
-		provider
-	  ),
-	  provider   // dispose‑on‑extension‑deactivate
-	);
-  }
-  
-  export function deactivate() { /* nothing to do, disposables handle it */ }
+  const provider = new VersionControlViewProvider(context.extensionUri);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      VersionControlViewProvider.viewType,
+      provider
+    ),
+    provider   // dispose‑on‑extension‑deactivate
+  );
+}
+
+export function deactivate() { /* nothing to do, disposables handle it */ }
 
   
 /* ────────────────────────────────────────────────────────────────────── */
@@ -148,6 +148,7 @@ class VersionControlViewProvider
       vscode.window.showErrorMessage(`❌ Git commit failed: ${err.message}`);
     }
     this.refreshFileList();
+    await this.refreshShelf();
   }
 
   /* ─── Roll back: un‑stage   + restore work‑tree ─────────────────────── */
@@ -174,6 +175,7 @@ class VersionControlViewProvider
     }
 
     await this.refreshFileList();  // update the sidebar
+    await this.refreshShelf(); // update shelf view
   }
 
 
@@ -217,11 +219,23 @@ class VersionControlViewProvider
       let commits: { hash: string; message: string }[] = [];
 
       if (status.tracking) {
+        /* normal case: branch has an upstream */
         const log = await this.git.log({ from: status.tracking, to: 'HEAD' });
-        commits = log.all.map(c => ({
-          hash: c.hash,
-          message: c.message,
-        }));
+        commits = log.all.map(c => ({ hash: c.hash, message: c.message }));
+      } else {
+        /* fallback: branch has NO upstream – show everything
+           that isn’t on ANY remote                                 */
+        const raw = await this.git.raw([
+          'log', '--branches', '--not', '--remotes',
+          '--pretty=%H:::%s'
+        ]);
+        commits = raw.trim()
+          .split('\n')
+          .filter(Boolean)
+          .map(l => {
+            const [hash, message] = l.split(':::');
+            return { hash, message };
+          });
       }
 
       this._view.webview.postMessage({ type: 'shelfList', commits });
