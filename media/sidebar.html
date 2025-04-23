@@ -209,6 +209,15 @@
       flex: 1 1 auto;
     }
 
+    .toolbar-branch {
+      color: #888;
+      margin-left: 5px;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     #toolbar button {
       background: transparent;
       border: 1px solid #444;
@@ -341,6 +350,157 @@
       flex-direction: column;
       overflow: hidden;
     }
+
+    #shelfToolbar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+      align-items: center;
+    }
+
+    #shelfToolbar select {
+      flex: 1 1 auto;
+      font-family: var(--vscode-editor-font-family, monospace);
+      background: #2b2d30;
+      border: 1px solid #444;
+      color: var(--text);
+      height: 24px;
+      font-size: 13px;
+    }
+
+    #shelfPanel button {
+      display: flex;
+      align-items: center;
+      text-align: left;
+      gap: 6px;
+      font-family: var(--vscode-editor-font-family, monospace);
+      font-size: 13px;
+      background: #2b2d30;
+      color: var(--text);
+      border: none;
+      cursor: pointer;
+      padding: 4px 8px;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #shelfPanel button i {
+      flex: 0 0 auto;
+    }
+
+    #shelfPanel button span {
+      flex: 1 1 auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #shelfPanel button:hover {
+      background: var(--blue);
+    }
+
+    #confirmOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .55);
+      display: hidden;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+
+    #confirmOverlay[hidden] {
+      display: none !important;
+    }
+
+    #confirmBox {
+      background: var(--bg);
+      padding: 20px;
+      border: 1px solid #555;
+      border-radius: 6px;
+      max-width: 320px;
+      box-shadow: 0 0 10px #000;
+      text-align: center;
+    }
+
+    #confirmText {
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    #confirmButtons {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    #confirmButtons button {
+      padding: 4px 16px;
+      font-size: 13px;
+      background: var(--blue);
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .shelf-section {
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #444;
+    }
+
+    .shelf-label {
+      font-weight: bold;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    #newBranchOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+
+    #newBranchOverlay[hidden] {
+      display: none !important;
+    }
+
+    #newBranchBox {
+      background: var(--bg);
+      padding: 16px;
+      border: 1px solid #555;
+      border-radius: 6px;
+      box-shadow: 0 0 10px #000;
+      max-width: 300px;
+      width: 100%;
+      text-align: center;
+    }
+
+    #newBranchBox .modal-title {
+      margin-bottom: 10px;
+      font-weight: bold;
+      color: var(--text);
+    }
+
+    #newBranchInput {
+      width: 100%;
+      padding: 6px;
+      font-size: 13px;
+      background: #2b2d30;
+      border: 1px solid #444;
+      color: var(--text);
+      font-family: var(--vscode-editor-font-family, monospace);
+      margin-bottom: 12px;
+      box-sizing: border-box;
+    }
   </style>
 </head>
 
@@ -348,14 +508,15 @@
   <!-- ── Tabs ─────────────────────────────────────────── -->
   <div id="tabs">
     <button id="tabCommit" class="tab active">Commit</button>
-    <button id="tabShelf" class="tab">Shelf</button>
+    <button id="tabShelf" class="tab">Branches</button>
   </div>
   <div id="commitPanel" class="panel">
     <!-- ── Toolbar ─────────────────────────────────────────── -->
     <div id="toolbar">
+      <div id="currentBranchName" class="subtle-info toolbar-branch"></div>
+      <span class="spacer"></span>
       <button id="btnRefresh" title="Refresh"><i class="codicon codicon-refresh"></i></button>
       <button id="btnRollback" title="Roll back selected files"><i class="codicon codicon-discard"></i></button>
-      <span class="spacer"></span>
       <button id="btnCollapse" title="Collapse all"><i class="codicon codicon-collapse-all"></i></button>
       <button id="btnExpand" title="Expand all"><i class="codicon codicon-expand-all"></i></button>
     </div>
@@ -406,9 +567,66 @@
       </div>
     </div>
   </div>
+
   <div id="shelfPanel" class="panel" style="display:none;">
-    <ul id="shelfList" class="commit-list"></ul>
+
+    <!-- ── Branch selection ───────────────────────────── -->
+    <div class="shelf-section">
+      <div class="shelf-label">Select Branch</div>
+      <div id="shelfToolbar">
+        <select id="branchSelect"></select>
+      </div>
+    </div>
+
+    <!-- ── Git actions ───────────────────────────── -->
+    <div class="shelf-section">
+      <div class="shelf-label">Branch Actions</div>
+      <button id="btnPull" title="Update (pull)">
+        <i class="codicon codicon-repo-pull"></i>
+        <span>Update project from remote</span>
+      </button>
+
+      <button id="btnPush" title="Push to branch">
+        <i class="codicon codicon-repo-push"></i>
+        <span>Push to current branch</span>
+      </button>
+
+      <button id="btnNewBr" title="Create new branch">
+        <i class="codicon codicon-repo-forked"></i>
+        <span>New branch from current</span>
+      </button>
+    </div>
+
+    <!-- ── Local commits / Shelf ───────────────────────────── -->
+    <div class="shelf-section">
+      <div class="shelf-label">Unpushed Commits</div>
+      <ul id="shelfList" class="commit-list"></ul>
+    </div>
+
+    <!-- ── Confirm modal ───────────────────────────── -->
+    <div id="confirmOverlay" hidden>
+      <div id="confirmBox">
+        <p id="confirmText"></p>
+        <div id="confirmButtons">
+          <button id="confirmYes">Yes</button>
+          <button id="confirmNo">No</button>
+        </div>
+      </div>
+    </div>
   </div>
+  <!-- ── new branch modal ───────────────────────────── -->
+  <div id="newBranchOverlay" hidden>
+    <div id="newBranchBox">
+      <p class="modal-title">Create New Branch</p>
+      <input type="text" id="newBranchInput" placeholder="Enter branch name..." />
+      <div class="modal-buttons">
+        <button id="newBranchCreate">Create</button>
+        <button id="newBranchCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+
 
   <script>
     let lastChangesCache = { staged: [], modified: [], not_added: [] };
@@ -437,7 +655,11 @@
       shelfPanel.style.display = commit ? 'none' : 'block';
       tabCommit.classList.toggle('active', commit);
       tabShelf.classList.toggle('active', !commit);
-      if (!commit) { vscode.postMessage({ type: 'requestShelf' }); }
+      if (commit) {
+        vscode.postMessage({ type: 'requestBranches' });
+      } else {
+        vscode.postMessage({ type: 'requestShelf' });
+      }
     }
     tabCommit.addEventListener('click', () => switchTab('commit'));
     tabShelf.addEventListener('click', () => switchTab('shelf'));
@@ -707,7 +929,7 @@
     stagedList.style.display = 'block';
 
     vscode.postMessage({ type: 'ready' });
-
+    vscode.postMessage({ type: 'requestBranches' });
     untrackedList.style.display = 'block';
     function updateSelectAllState(group) {
       const checkboxes = document.querySelectorAll(`.file-checkbox[data-group="${group}"]`);
@@ -727,6 +949,139 @@
         selectAll.indeterminate = true;
       }
     }
+    /* ── Shelf-branch helpers ────────────────────────────────────────── */
+    const branchSelect = document.getElementById('branchSelect');
+    const btnPull = document.getElementById('btnPull');
+    const btnPush = document.getElementById('btnPush');
+    const btnNewBr = document.getElementById('btnNewBr');
+
+    function requestBranches() {
+      vscode.postMessage({ type: 'requestBranches' });
+    }
+
+    /* populate <select> with “Local” and “Remote” opt-groups */
+    function buildBranchDropdown(data) {
+      branchSelect.innerHTML = '';
+      const mk = (label, list) => {
+        if (!list.length) return;
+        const group = document.createElement('optgroup'); group.label = label;
+        list.forEach(b => {
+          const opt = new Option(b, b);
+          if (b === data.current) {
+            opt.selected = true;
+            opt.setAttribute('selected', '');
+          }
+          group.appendChild(opt);
+        });
+        branchSelect.appendChild(group);
+      };
+      mk('Local', data.locals);
+      mk('Remote', data.remotes);
+    }
+
+
+    /* respond to messages coming from the extension */
+    window.addEventListener('message', e => {
+      const msg = e.data;
+      if (msg.type === 'branchList') {
+        buildBranchDropdown(msg);
+      }
+    });
+
+    /* shelf-tab is shown → ask for branch list */
+    tabShelf.addEventListener('click', () => {
+      switchTab('shelf');
+      requestBranches();
+    });
+
+    /* buttons */
+    btnPull.addEventListener('click', () => {
+      vscode.postMessage({ type: 'updateFromRemote', branch: branchSelect.value });
+    });
+    btnPush.addEventListener('click', () => {
+      vscode.postMessage({ type: 'pushBranch', branch: branchSelect.value });
+    });
+    const newBranchOverlay = document.getElementById('newBranchOverlay');
+    const newBranchInput = document.getElementById('newBranchInput');
+    const newBranchCreate = document.getElementById('newBranchCreate');
+    const newBranchCancel = document.getElementById('newBranchCancel');
+
+    btnNewBr.addEventListener('click', () => {
+      newBranchInput.value = '';
+      newBranchOverlay.hidden = false;
+      newBranchInput.focus();
+    });
+
+    newBranchCancel.addEventListener('click', () => {
+      newBranchOverlay.hidden = true;
+    });
+
+    newBranchCreate.addEventListener('click', () => {
+      const name = newBranchInput.value.trim();
+      if (!name) return;
+      vscode.postMessage({ type: 'createBranch', name });
+      newBranchOverlay.hidden = true;
+    });
+
+    newBranchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') newBranchCreate.click();
+      if (e.key === 'Escape') newBranchCancel.click();
+    });
+
+    branchSelect.addEventListener('change', () => {
+      const selected = branchSelect.value;
+      const current = branchSelect.querySelector('option[selected]')?.value;
+
+      if (selected === current) return;  // no change, skip
+
+      showConfirmModal(`Are you sure you want to check out branch "${selected}"?`, () => {
+        vscode.postMessage({ type: 'checkoutBranch', branch: selected });
+      }, () => {
+        // cancel to reset selection to original
+        buildBranchDropdown({
+          current,
+          locals: [...branchSelect.querySelectorAll('optgroup[label="Local"] option')].map(o => o.value),
+          remotes: [...branchSelect.querySelectorAll('optgroup[label="Remote"] option')].map(o => o.value),
+        });
+      });
+    });
+    function showConfirmModal(message, onConfirm, onCancel) {
+      const overlay = document.getElementById('confirmOverlay');
+      const text = document.getElementById('confirmText');
+      const yesBtn = document.getElementById('confirmYes');
+      const noBtn = document.getElementById('confirmNo');
+      overlay.onkeydown = e => { if (e.key === 'Escape') noBtn.onclick(); };
+
+      text.textContent = message;
+      overlay.hidden = false;
+
+      const cleanup = () => {
+        overlay.hidden = true;
+        yesBtn.onclick = noBtn.onclick = null;
+      };
+
+      yesBtn.onclick = () => {
+        cleanup();
+        onConfirm();
+      };
+      noBtn.onclick = () => {
+        cleanup();
+        onCancel();
+      };
+    }
+    window.addEventListener('message', e => {
+      const msg = e.data;
+      if (msg.type === 'branchList') {
+        buildBranchDropdown(msg);
+        const branchEl = document.getElementById('currentBranchName');
+        if (branchEl) {
+          const branch = msg.current || '';
+          branchEl.innerHTML = branch
+            ? `<i class="codicon codicon-git-branch"></i><span> ${branch}</span>`
+            : '';
+        }
+      }
+    });
 
   </script>
 </body>

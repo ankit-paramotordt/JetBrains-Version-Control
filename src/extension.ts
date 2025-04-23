@@ -62,20 +62,19 @@ class VersionControlViewProvider
   private async handleMessage(msg: any) {
 
     switch (msg.type) {
-      case 'requestRefresh':
-        return this.refreshFileList();
-      case 'openDiff':
-        return this.openDiff(msg.file);
-      case 'requestShelf':
-        return this.refreshShelf();
-      case 'commitAndPush':
-        return this.commitAndPush(msg.files, msg.message);
+      case 'requestRefresh': return this.refreshFileList();
+      case 'openDiff': return this.openDiff(msg.file);
+      case 'requestShelf': return this.refreshShelf();
+      case 'commitAndPush': return this.commitAndPush(msg.files, msg.message);
+      case 'commit': return this.commitFiles(msg.files, msg.message);
+      case 'rollback': return this.rollbackFiles(msg.files);
+      case 'requestBranches': return this.sendBranchList();
+      case 'updateFromRemote': return this.pullBranch(msg.branch);
+      case 'pushBranch': return this.pushBranch(msg.branch);
+      case 'createBranch': return this.createBranch(msg.name);
+      case 'checkoutBranch': return this.checkoutBranch(msg.branch);
 
-      case 'commit':
-        return this.commitFiles(msg.files, msg.message);
 
-      case 'rollback':
-        return this.rollbackFiles(msg.files);
       case 'ready':
         this._webviewReady = true;
         this.refreshFileList();
@@ -93,6 +92,73 @@ class VersionControlViewProvider
     if (!repo) { throw new Error('No open workspace.'); }
     return simpleGit.default(repo);
   }
+  /* ───────── branch helpers ───────────────────────────────────────── */
+
+  private async sendBranchList() {
+    if (!this._view || !this._webviewReady) return;
+    const summary = await this.git.branch();
+
+    const locals = Object.keys(summary.branches)
+      .filter(b => !b.startsWith('remotes/'));
+    const remotes = Object.keys(summary.branches)
+      .filter(b => b.startsWith('remotes/'))
+      .map(b => b.replace(/^remotes\//, ''));
+
+    this._view.webview.postMessage({
+      type: 'branchList',
+      current: summary.current,
+      locals,
+      remotes
+    });
+  }
+
+  private async pullBranch(branch: string) {
+    try {
+      /* branch may be  "origin/main" (remote) or "main" (local) */
+      if (branch.includes('/')) {
+        const [remote, br] = branch.split('/', 2);
+        await this.git.pull(remote, br);
+      } else {
+        await this.git.pull('origin', branch);
+      }
+      vscode.window.showInformationMessage(`Pulled ${branch}.`);
+      this.refreshShelf();
+    } catch (e: any) {
+      vscode.window.showErrorMessage(`Pull failed: ${e.message}`);
+    }
+  }
+
+  private async pushBranch(branch: string) {
+    try {
+      await this.git.push('origin', branch);
+      vscode.window.showInformationMessage(`Pushed ${branch}.`);
+      this.refreshShelf();
+    } catch (e: any) {
+      vscode.window.showErrorMessage(`Push failed: ${e.message}`);
+    }
+  }
+
+  private async createBranch(name: string) {
+    try {
+      await this.git.checkoutLocalBranch(name);
+      vscode.window.showInformationMessage(`Created & checked-out ${name}.`);
+      this.sendBranchList();          // update dropdown
+      this.refreshShelf();
+    } catch (e: any) {
+      vscode.window.showErrorMessage(`Cannot create branch: ${e.message}`);
+    }
+  }
+  private async checkoutBranch(name: string) {
+    try {
+      await this.git.checkout(name);
+      vscode.window.showInformationMessage(`Switched to branch ${name}.`);
+      this.sendBranchList();          // refresh dropdown
+      this.refreshShelf();            // optional: reload shelf state
+    } catch (e: any) {
+      vscode.window.showErrorMessage(`Cannot switch branch: ${e.message}`);
+    }
+  }
+
   /* ─── open HEAD to working‑copy diff ─────────────────────────────────── */
   private async openDiff(relPath: string) {
     const repo = this.repoPath;
