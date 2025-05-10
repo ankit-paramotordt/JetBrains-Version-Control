@@ -505,127 +505,133 @@
 </head>
 
 <body>
-  <!-- ── Tabs ─────────────────────────────────────────── -->
-  <div id="tabs">
-    <button id="tabCommit" class="tab active">Commit</button>
-    <button id="tabShelf" class="tab">Branches</button>
-  </div>
-  <div id="commitPanel" class="panel">
-    <!-- ── Toolbar ─────────────────────────────────────────── -->
-    <div id="toolbar">
-      <div id="currentBranchName" class="subtle-info toolbar-branch"></div>
-      <span class="spacer"></span>
-      <button id="btnRefresh" title="Refresh"><i class="codicon codicon-refresh"></i></button>
-      <button id="btnRollback" title="Roll back selected files"><i class="codicon codicon-discard"></i></button>
-      <button id="btnCollapse" title="Collapse all"><i class="codicon codicon-collapse-all"></i></button>
-      <button id="btnExpand" title="Expand all"><i class="codicon codicon-expand-all"></i></button>
+  <div id="app">
+    <!-- ── Tabs ─────────────────────────────────────────── -->
+    <div id="tabs">
+      <button id="tabCommit" class="tab active">Commit</button>
+      <button id="tabShelf" class="tab">Branches</button>
     </div>
-    <div id="mainLists">
-      <!-- Changes -->
-      <div class="section" id="changesSection">
-        <div class="section-header" onclick="toggleSection('changes')">
-          <i class="codicon codicon-chevron-down" id="changesChevron"></i>
-          <input type="checkbox" id="selectAllChanges" onclick="event.stopPropagation()">
-          <span>Changes</span>
-        </div>
-        <ul class="file-list" id="stagedList"></ul>
+    <div id="commitPanel" class="panel">
+      <!-- ── Toolbar ─────────────────────────────────────────── -->
+      <div id="toolbar">
+        <div id="currentBranchName" class="subtle-info toolbar-branch"></div>
+        <span class="spacer"></span>
+        <button id="btnRefresh" title="Refresh"><i class="codicon codicon-refresh"></i></button>
+        <button id="btnRollback" title="Roll back selected files"><i class="codicon codicon-discard"></i></button>
+        <button id="btnCollapse" title="Collapse all"><i class="codicon codicon-collapse-all"></i></button>
+        <button id="btnExpand" title="Expand all"><i class="codicon codicon-expand-all"></i></button>
       </div>
-
-      <!-- Unversioned -->
-      <div class="section" id="untrackedSection">
-        <div class="section-header" onclick="toggleSection('untracked')">
-          <i class="codicon codicon-chevron-down" id="untrackedChevron"></i>
-          <input type="checkbox" id="selectAllUntracked" onclick="event.stopPropagation()">
-          <span>Unversioned Files</span>
+      <div id="mainLists">
+        <!-- Changes -->
+        <div class="section" id="changesSection">
+          <div class="section-header" onclick="toggleSection('changes')">
+            <i class="codicon codicon-chevron-down" id="changesChevron"></i>
+            <input type="checkbox" id="selectAllChanges" onclick="event.stopPropagation()">
+            <span>Changes</span>
+          </div>
+          <ul class="file-list" id="stagedList"></ul>
         </div>
-        <ul class="file-list" id="untrackedList"></ul>
+
+        <!-- Unversioned -->
+        <div class="section" id="untrackedSection">
+          <div class="section-header" onclick="toggleSection('untracked')">
+            <i class="codicon codicon-chevron-down" id="untrackedChevron"></i>
+            <input type="checkbox" id="selectAllUntracked" onclick="event.stopPropagation()">
+            <span>Unversioned Files</span>
+          </div>
+          <ul class="file-list" id="untrackedList"></ul>
+        </div>
+
+
+
       </div>
+      <!-- Commit box -->
+      <div class="section">
+        <textarea id="commitMsg" placeholder="Commit message..."></textarea>
+        <button id="commitBtn">Commit</button>
+        <button id="pushBtn">Commit and Push...</button>
+      </div>
+      <!-- ── Roll-back (hidden by default) ──────────────────────────── -->
+      <div id="rb-overlay" hidden>
+        <div id="rb-dialog">
+          <div id="rb-header">Rollback Changes</div>
 
+          <ul id="rb-fileList"></ul>
 
-
-    </div>
-    <!-- Commit box -->
-    <div class="section">
-      <textarea id="commitMsg" placeholder="Commit message..."></textarea>
-      <button id="commitBtn">Commit</button>
-      <button id="pushBtn">Commit and Push...</button>
-    </div>
-    <!-- ── Roll-back (hidden by default) ──────────────────────────── -->
-    <div id="rb-overlay" hidden>
-      <div id="rb-dialog">
-        <div id="rb-header">Rollback Changes</div>
-
-        <ul id="rb-fileList"></ul>
-
-        <div id="rb-footer">
-          <span id="rb-count">0 modified</span>
-          <div>
-            <button id="rb-btnOk" class="primary">Rollback</button>
-            <button id="rb-btnCancel">Close</button>
+          <div id="rb-footer">
+            <span id="rb-count">0 modified</span>
+            <div>
+              <button id="rb-btnOk" class="primary">Rollback</button>
+              <button id="rb-btnCancel">Close</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <div id="shelfPanel" class="panel" style="display:none;">
+    <div id="shelfPanel" class="panel" style="display:none;">
 
-    <!-- ── Branch selection ───────────────────────────── -->
-    <div class="shelf-section">
-      <div class="shelf-label">Select Branch</div>
-      <div id="shelfToolbar">
-        <select id="branchSelect"></select>
+      <!-- ── Branch selection ───────────────────────────── -->
+      <div class="shelf-section">
+        <div class="shelf-label">Select Branch</div>
+        <div id="shelfToolbar">
+          <select id="branchSelect"></select>
+        </div>
+      </div>
+
+      <!-- ── Git actions ───────────────────────────── -->
+      <div class="shelf-section">
+        <div class="shelf-label">Branch Actions</div>
+        <button id="btnPull" title="Update (pull)">
+          <i class="codicon codicon-repo-pull"></i>
+          <span>Update project from remote</span>
+        </button>
+
+        <button id="btnPush" title="Push to branch">
+          <i class="codicon codicon-repo-push"></i>
+          <span>Push to current branch</span>
+        </button>
+
+        <button id="btnNewBr" title="Create new branch">
+          <i class="codicon codicon-repo-forked"></i>
+          <span>New branch from current</span>
+        </button>
+      </div>
+
+      <!-- ── Local commits / Shelf ───────────────────────────── -->
+      <div class="shelf-section">
+        <div class="shelf-label">Unpushed Commits</div>
+        <ul id="shelfList" class="commit-list"></ul>
+      </div>
+
+      <!-- ── Confirm modal ───────────────────────────── -->
+      <div id="confirmOverlay" hidden>
+        <div id="confirmBox">
+          <p id="confirmText"></p>
+          <div id="confirmButtons">
+            <button id="confirmYes">Yes</button>
+            <button id="confirmNo">No</button>
+          </div>
+        </div>
       </div>
     </div>
-
-    <!-- ── Git actions ───────────────────────────── -->
-    <div class="shelf-section">
-      <div class="shelf-label">Branch Actions</div>
-      <button id="btnPull" title="Update (pull)">
-        <i class="codicon codicon-repo-pull"></i>
-        <span>Update project from remote</span>
-      </button>
-
-      <button id="btnPush" title="Push to branch">
-        <i class="codicon codicon-repo-push"></i>
-        <span>Push to current branch</span>
-      </button>
-
-      <button id="btnNewBr" title="Create new branch">
-        <i class="codicon codicon-repo-forked"></i>
-        <span>New branch from current</span>
-      </button>
-    </div>
-
-    <!-- ── Local commits / Shelf ───────────────────────────── -->
-    <div class="shelf-section">
-      <div class="shelf-label">Unpushed Commits</div>
-      <ul id="shelfList" class="commit-list"></ul>
-    </div>
-
-    <!-- ── Confirm modal ───────────────────────────── -->
-    <div id="confirmOverlay" hidden>
-      <div id="confirmBox">
-        <p id="confirmText"></p>
-        <div id="confirmButtons">
-          <button id="confirmYes">Yes</button>
-          <button id="confirmNo">No</button>
+    <!-- ── new branch modal ───────────────────────────── -->
+    <div id="newBranchOverlay" hidden>
+      <div id="newBranchBox">
+        <p class="modal-title">Create New Branch</p>
+        <input type="text" id="newBranchInput" placeholder="Enter branch name..." />
+        <div class="modal-buttons">
+          <button id="newBranchCreate">Create</button>
+          <button id="newBranchCancel">Cancel</button>
         </div>
       </div>
     </div>
   </div>
-  <!-- ── new branch modal ───────────────────────────── -->
-  <div id="newBranchOverlay" hidden>
-    <div id="newBranchBox">
-      <p class="modal-title">Create New Branch</p>
-      <input type="text" id="newBranchInput" placeholder="Enter branch name..." />
-      <div class="modal-buttons">
-        <button id="newBranchCreate">Create</button>
-        <button id="newBranchCancel">Cancel</button>
-      </div>
-    </div>
-  </div>
 
+  <div id="notRepoView" style="padding: 1em;" hidden>
+    <p>This folder is not a Git repository.</p>
+    <button id="initGit">Initialize Git Repository</button>
+  </div>
 
 
   <script>
@@ -746,6 +752,8 @@
     window.addEventListener('message', event => {
       const msg = event.data;
       if (msg.type === 'fileList') {
+        document.getElementById('notRepoView').hidden = true;
+        document.getElementById('app').style.display = 'block';
         selectAllChanges.checked = false;
         selectAllUntracked.checked = false;
         lastChangesCache = msg.changes;
@@ -819,6 +827,8 @@
 
       vscode.postMessage({ type: 'commit', files: selected, message });
       selectedFiles.clear();
+      commitMsg.value = '';
+      commitMsg.placeholder = 'Commit message...';
     });
 
     pushBtn.addEventListener('click', () => {
@@ -1082,6 +1092,24 @@
         }
       }
     });
+
+    window.addEventListener('message', event => {
+      const message = event.data;
+
+      if (message.type === 'notGitRepo') {
+        document.getElementById('app').style.display = 'none';
+        const notRepoView = document.getElementById('notRepoView');
+        notRepoView.hidden = false;
+
+        const btn = notRepoView.querySelector('#initGit');
+        if (btn) {
+          btn.addEventListener('click', () => {
+            vscode.postMessage({ type: 'initGitRepo' });
+          }, { once: true });
+        }
+      }
+    });
+
 
   </script>
 </body>

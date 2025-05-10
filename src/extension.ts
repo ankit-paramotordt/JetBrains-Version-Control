@@ -15,7 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() { /* nothing to do, disposables handle it */ }
 
-  
+
 /* ────────────────────────────────────────────────────────────────────── */
 
 class VersionControlViewProvider
@@ -73,7 +73,7 @@ class VersionControlViewProvider
       case 'pushBranch': return this.pushBranch(msg.branch);
       case 'createBranch': return this.createBranch(msg.name);
       case 'checkoutBranch': return this.checkoutBranch(msg.branch);
-
+      case 'initGitRepo': return this.initGitRepo();
 
       case 'ready':
         this._webviewReady = true;
@@ -83,10 +83,31 @@ class VersionControlViewProvider
   }
 
   /* ── Git helpers ─────────────────────────────────────────────────── */
+  /* return the path to the current workspace */
   private get repoPath(): string | undefined {
     return vscode.workspace.workspaceFolders?.[0].uri.fsPath;
   }
-
+  /* return true if `repoPath` really is a Git repo on disk */
+  private async isGitRepo(): Promise<boolean> {
+    const repo = this.repoPath;
+    if (!repo) { return false; }
+    try {
+      return await simpleGit.default(repo).checkIsRepo();
+    } catch {
+      return false;
+    }
+  }
+  /* ─── init a new Git repo ────────────────────────────────────────── */
+  private async initGitRepo() {
+    try {
+      await this.git.init();
+      vscode.window.showInformationMessage('Initialized a new Git repository.');
+      this.refreshFileList(); // Refresh UI now that it's a git repo
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Failed to initialize Git repository: ${err.message}`);
+    }
+  }
+  /* ─── get a simple-git instance for the current workspace ───────── */
   private get git() {
     const repo = this.repoPath;
     if (!repo) { throw new Error('No open workspace.'); }
@@ -249,6 +270,10 @@ class VersionControlViewProvider
   /* ── Build the JSON we send to the webview ───────────────────────── */
   private async refreshFileList() {
     if (!this._view || !this._webviewReady) { return; }
+    if (!(await this.isGitRepo())) {
+      this._view.webview.postMessage({ type: 'notGitRepo' });
+      return;
+    }
 
     try {
       const status = await this.git.status();
