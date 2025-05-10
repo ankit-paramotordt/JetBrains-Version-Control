@@ -151,8 +151,41 @@ class VersionControlViewProvider
 
   private async pushBranch(branch: string) {
     try {
-      await this.git.push('origin', branch);
-      vscode.window.showInformationMessage(`Pushed ${branch}.`);
+      const status = await this.git.status();
+
+      let remote = status.tracking?.split('/')[0];
+      let setUpstream = false;
+
+      if (!remote) {
+        // No tracking branch configured, ask user to select remote
+        const remotes = await this.git.getRemotes(true);
+
+        if (!remotes.length) {
+          vscode.window.showWarningMessage('No Git remotes are configured.');
+          return;
+        }
+
+        const selected = await vscode.window.showQuickPick(
+          remotes.map(r => r.name),
+          { placeHolder: 'Select a remote to push to:' }
+        );
+
+        if (!selected) {
+          vscode.window.showInformationMessage('Push cancelled.');
+          return;
+        }
+
+        remote = selected;
+        setUpstream = true;
+      }
+
+      if (setUpstream) {
+        await this.git.push(['--set-upstream', remote, branch]);
+      } else {
+        await this.git.push(remote, branch);
+      }
+
+      vscode.window.showInformationMessage(`Pushed ${branch} to ${remote}.`);
       this.refreshShelf();
     } catch (e: any) {
       vscode.window.showErrorMessage(`Push failed: ${e.message}`);
@@ -289,17 +322,72 @@ class VersionControlViewProvider
   }
   private async commitAndPush(files: string[], message: string) {
     try {
+      // Stage and commit
       await this.git.add(files);
       await this.git.commit(message, files);
-      await this.git.push();
 
-      vscode.window.showInformationMessage('Commit and push successful.');
-      this.refreshFileList(); // update UI
-      this.refreshShelf();    // update shelf view
+      // Check current status
+      const status = await this.git.status();
+
+      if (!status.current || status.detached) {
+        const newBranch = await vscode.window.showInputBox({
+          prompt: 'You are in a detached HEAD state. Enter a name for a new branch to push your commit:',
+          placeHolder: 'e.g. main, feature/login'
+        });
+
+        if (!newBranch) {
+          vscode.window.showWarningMessage('Commit was created, but push was cancelled (no branch selected).');
+          return;
+        }
+
+        // Create and switch to new branch
+        await this.git.checkoutLocalBranch(newBranch);
+        vscode.window.showInformationMessage(`Created and switched to branch '${newBranch}'`);
+      }
+
+      // Determine remote
+      let remote = status.tracking?.split('/')[0];
+      let setUpstream = false;
+
+      if (!remote) {
+        const remotes = await this.git.getRemotes(true);
+
+        if (!remotes.length) {
+          vscode.window.showWarningMessage('No Git remotes are configured.');
+          return;
+        }
+
+        const selected = await vscode.window.showQuickPick(
+          remotes.map(r => r.name),
+          { placeHolder: 'Select a remote to push to:' }
+        );
+
+        if (!selected) {
+          vscode.window.showInformationMessage('Commit complete, but push cancelled.');
+          return;
+        }
+
+        remote = selected;
+        setUpstream = true;
+      }
+
+      // Push with or without upstream depending on state
+      const currentBranch = (await this.git.status()).current!;
+      if (setUpstream) {
+        await this.git.push(['--set-upstream', remote, currentBranch]);
+      } else {
+        await this.git.push(remote, currentBranch);
+      }
+
+      vscode.window.showInformationMessage(`Commit and push successful to ${remote}/${currentBranch}.`);
+      this.refreshFileList();
+      this.refreshShelf();
+
     } catch (err: any) {
       vscode.window.showErrorMessage(`Commit & Push failed: ${err.message}`);
     }
   }
+  
 
   /** Send every commit that is ahead of the branch’s upstream */
   private async refreshShelf() {
