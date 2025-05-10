@@ -2,7 +2,7 @@
   "name": "jetbrains-version-control",
   "displayName": "JetBrains Version Control",
   "description": "A custom sidebar version control UI based on JetBrains IDEs",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "engines": {
     "vscode": "^1.99.0"
   },
