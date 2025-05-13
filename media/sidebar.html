@@ -41,15 +41,11 @@
       flex: 1 1 auto;
       overflow-y: auto;
       padding-right: 10px;
-      padding-bottom: 120px;
-      max-height: 150vw;
     }
 
     .commit-box {
       border-top: 1px solid #444;
-      margin-bottom: 25px;
-      position: fixed;
-      bottom: 0;
+      margin-bottom: 75px;
     }
 
     .section {
@@ -354,10 +350,9 @@
     }
 
     #commitPanel {
-      flex: 1 1 auto;
-      position: relative;
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: 100%;
     }
 
     #shelfToolbar {
