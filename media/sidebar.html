@@ -31,16 +31,25 @@
       color: var(--text);
     }
 
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
     #mainLists {
       flex: 1 1 auto;
       overflow-y: auto;
       padding-right: 10px;
+      padding-bottom: 120px;
+      max-height: 150vw;
     }
 
     .commit-box {
       border-top: 1px solid #444;
-      padding-top: 8px;
-      background: var(--bg);
+      margin-bottom: 25px;
+      position: fixed;
+      bottom: 0;
     }
 
     .section {
@@ -346,9 +355,9 @@
 
     #commitPanel {
       flex: 1 1 auto;
+      position: relative;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
     }
 
     #shelfToolbar {
@@ -541,12 +550,9 @@
           </div>
           <ul class="file-list" id="untrackedList"></ul>
         </div>
-
-
-
       </div>
       <!-- Commit box -->
-      <div class="section">
+      <div class="commit-box">
         <textarea id="commitMsg" placeholder="Commit message..."></textarea>
         <button id="commitBtn">Commit</button>
         <button id="pushBtn">Commit and Push...</button>
