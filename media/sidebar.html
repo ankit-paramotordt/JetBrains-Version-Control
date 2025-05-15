@@ -658,7 +658,7 @@
 
     function switchTab(which) {
       const commit = which === 'commit';
-      commitPanel.style.display = commit ? 'block' : 'none';
+      commitPanel.style.display = commit ? 'grid' : 'none';
       shelfPanel.style.display = commit ? 'none' : 'block';
       tabCommit.classList.toggle('active', commit);
       tabShelf.classList.toggle('active', !commit);
