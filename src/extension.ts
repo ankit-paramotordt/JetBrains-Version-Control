@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
 import * as simpleGit from 'simple-git';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as crypto from 'crypto';
 
 export function activate(context: vscode.ExtensionContext) {
-  const provider = new VersionControlViewProvider(context.extensionUri);
+  const provider = new VersionControlViewProvider(context.extensionUri, context);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       VersionControlViewProvider.viewType,
@@ -27,7 +29,18 @@ class VersionControlViewProvider
   private _watcher?: vscode.FileSystemWatcher;
   private _debounce?: NodeJS.Timeout;
   private _webviewReady = false;
-  constructor(private readonly _extUri: vscode.Uri) { }
+  private readonly _localHistoryDir: string;
+  
+  constructor(
+    private readonly _extUri: vscode.Uri, 
+    private readonly _context?: vscode.ExtensionContext
+  ) { 
+    this._localHistoryDir = path.join(_extUri.fsPath, '..', 'local-history');
+    // Ensure directory exists
+    if (!fs.existsSync(this._localHistoryDir)) {
+      fs.mkdirSync(this._localHistoryDir, { recursive: true });
+    }
+  }
 
   /* ── VS Code calls this when the sidebar becomes visible ─────────── */
   public async resolveWebviewView(view: vscode.WebviewView) {
@@ -56,6 +69,16 @@ class VersionControlViewProvider
 
     /* messages from the webview ───────────────────────────────── */
     view.webview.onDidReceiveMessage(msg => this.handleMessage(msg));
+
+    /* Set up file save tracking for Local History */
+    if (this._context) {
+      const saveListener = vscode.workspace.onDidSaveTextDocument(async (doc) => {
+        if (doc.languageId && !doc.isUntitled) {
+          await this.saveCurrentFileAsRevision('File save');
+        }
+      });
+      this._context.subscriptions.push(saveListener);
+    }
   }
 
   /* ── Handle messages coming from sidebar.html ────────────────────── */
@@ -74,6 +97,21 @@ class VersionControlViewProvider
       case 'createBranch': return this.createBranch(msg.name);
       case 'checkoutBranch': return this.checkoutBranch(msg.branch);
       case 'initGitRepo': return this.initGitRepo();
+      
+      // Local History handlers
+      case 'requestLocalHistory': return this.sendLocalHistory();
+      case 'selectRevision': return this.showRevisionDiff(msg.revisionId);
+      case 'showAllHistory': return this.showAllHistory();
+      case 'putHistoryLabel': return this.putHistoryLabel(msg.label);
+      case 'clearLocalHistory': return this.clearLocalHistory();
+      
+      // Git Graph handlers  
+      case 'requestGitGraph': return this.sendGitGraph();
+      case 'selectCommit': return this.showCommitDetails(msg.hash);
+      case 'cherryPickCommit': return this.cherryPickCommit(msg.hash);
+      case 'revertCommit': return this.revertCommit(msg.hash);
+      case 'resetToCommit': return this.resetToCommit(msg.hash);
+      case 'compareCommits': return this.compareCommits();
 
       case 'ready':
         this._webviewReady = true;
@@ -438,7 +476,11 @@ class VersionControlViewProvider
 
     const trigger = () => {
       clearTimeout(this._debounce);
-      this._debounce = setTimeout(() => this.refreshFileList(), 200);
+      this._debounce = setTimeout(() => {
+        this.refreshFileList();
+        // Auto-save file to local history for active file changes
+        this.autoSaveToLocalHistory();
+      }, 200);
     };
 
     this._watcher.onDidCreate(trigger);
@@ -447,6 +489,271 @@ class VersionControlViewProvider
 
     /* stop watching when the webview disappears */
     this._view?.onDidDispose(() => this._watcher?.dispose());
+  }
+
+  private lastSaveTime: { [file: string]: number } = {};
+
+  private async autoSaveToLocalHistory() {
+    const activeFile = vscode.window.activeTextEditor?.document;
+    if (!activeFile || activeFile.isUntitled) return;
+
+    const now = Date.now();
+    const filePath = activeFile.uri.fsPath;
+    const lastSave = this.lastSaveTime[filePath] || 0;
+
+    // Only save to history every 30 seconds to avoid spam
+    if (now - lastSave > 30000) {
+      this.lastSaveTime[filePath] = now;
+      await this.saveCurrentFileAsRevision('Auto save');
+    }
+  }
+
+  /* ── Local History functionality ───────────────────────────────── */
+
+  private async sendLocalHistory() {
+    if (!this._view || !this._webviewReady) return;
+    
+    try {
+      const revisions = await this.getLocalHistoryRevisions();
+      this._view.webview.postMessage({ type: 'localHistoryList', revisions });
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Local History error: ${err.message}`);
+    }
+  }
+
+  private async getLocalHistoryRevisions(): Promise<any[]> {
+    const revisions: any[] = [];
+    const workspacePath = this.repoPath;
+    
+    if (!workspacePath) return revisions;
+
+    const historyDir = path.join(this._localHistoryDir, workspacePath.replace(/[^a-zA-Z0-9]/g, '_'));
+    
+    if (!fs.existsSync(historyDir)) return revisions;
+
+    const files = fs.readdirSync(historyDir).sort().reverse();
+    
+    for (const file of files) {
+      const filePath = path.join(historyDir, file);
+      const stat = fs.statSync(filePath);
+      
+      const content = fs.readFileSync(filePath, 'utf-8');
+      let revisionData;
+      try {
+        revisionData = JSON.parse(content);
+      } catch {
+        continue;
+      }
+
+      revisions.push({
+        id: file.replace('.json', ''),
+        timestamp: stat.mtime.getTime(),
+        label: revisionData.label || 'Manual save',
+        content: revisionData.content,
+        files: revisionData.files || []
+      });
+    }
+
+    return revisions;
+  }
+
+  private async showRevisionDiff(revisionId: string) {
+    if (!this._view || !this._webviewReady) return;
+    
+    try {
+      const revisions = await this.getLocalHistoryRevisions();
+      const revision = revisions.find(r => r.id === revisionId);
+      
+      if (revision) {
+        // For simplicity, show diff content - in full implementation this would
+        // compare with current content or previous revision
+        this._view.webview.postMessage({ 
+          type: 'revisionDiff', 
+          diff: revision.content,
+          label: revision.label 
+        });
+      }
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Local History diff error: ${err.message}`);
+    }
+  }
+
+  private async showAllHistory() {
+    await this.sendLocalHistory();
+  }
+
+  private async putHistoryLabel(label: string) {
+    const activeFile = vscode.window.activeTextEditor?.document;
+    if (!activeFile) {
+      vscode.window.showWarningMessage('No active file to label');
+      return;
+    }
+
+    try {
+      await this.saveCurrentFileAsRevision(label);
+      await this.sendLocalHistory();
+      vscode.window.showInformationMessage(`Label "${label}" created`);
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Error creating label: ${err.message}`);
+    }
+  }
+
+  private async clearLocalHistory() {
+    const workspacePath = this.repoPath;
+    if (!workspacePath) return;
+
+    const historyDir = path.join(this._localHistoryDir, workspacePath.replace(/[^a-zA-Z0-9]/g, '_'));
+    
+    if (fs.existsSync(historyDir)) {
+      fs.rmSync(historyDir, { recursive: true, force: true });
+      vscode.window.showInformationMessage('Local History cleared');
+      await this.sendLocalHistory();
+    }
+  }
+
+  private async saveCurrentFileAsRevision(label?: string) {
+    const activeFile = vscode.window.activeTextEditor?.document;
+    if (!activeFile) return;
+
+    const workspacePath = this.repoPath;
+    if (!workspacePath) return;
+
+    const historyDir = path.join(this._localHistoryDir, workspacePath.replace(/[^a-zA-Z0-9]/g, '_'));
+    
+    if (!fs.existsSync(historyDir)) {
+      fs.mkdirSync(historyDir, { recursive: true });
+    }
+
+    const content = activeFile.getText();
+    const relativePath = path.relative(workspacePath, activeFile.uri.fsPath);
+    const revisionId = Date.now().toString();
+
+    const revisionData = {
+      label: label || 'Manual save',
+      files: [relativePath],
+      content: content,
+      timestamp: Date.now(),
+      filePath: relativePath
+    };
+
+    const revisionFile = path.join(historyDir, `${revisionId}.json`);
+    fs.writeFileSync(revisionFile, JSON.stringify(revisionData, null, 2));
+  }
+
+  /* ── Git Graph functionality ─────────────────────────────────── */
+
+  private async sendGitGraph() {
+    if (!this._view || !this._webviewReady) return;
+    
+    try {
+      const branches = await this.getBranchesForGraph();
+      const commits = await this.getCommitsForGraph();
+      
+      this._view.webview.postMessage({ 
+        type: 'gitGraphData', 
+        branches, 
+        commits 
+      });
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Git Graph error: ${err.message}`);
+    }
+  }
+
+  private async getBranchesForGraph() {
+    const summary = await this.git.branch();
+    
+    const locals = Object.keys(summary.branches)
+      .filter(b => !b.startsWith('remotes/'));
+    const remotes = Object.keys(summary.branches)
+      .filter(b => b.startsWith('remotes/'))
+      .map(b => b.replace(/^remotes\//, ''));
+
+    return { locals, remotes, current: summary.current };
+  }
+
+  private async getCommitsForGraph() {
+    const log = await this.git.log({
+      maxCount: 100
+    });
+
+    return log.all.map(commit => ({
+      hash: commit.hash,
+      message: commit.message,
+      author: commit.author_name,
+      date: commit.date,
+      parents: commit.hash // simplify for now
+    }));
+  }
+
+  private async showCommitDetails(hash: string) {
+    if (!this._view || !this._webviewReady) return;
+    
+    try {
+      const git = this.git;
+      const commitData = await git.show(['--name-status', hash]);
+      const commitInfo = await git.log({ from: hash, to: hash, maxCount: 1 });
+      
+      const changedFiles = await this.getChangedFilesForCommit(hash);
+
+      this._view.webview.postMessage({
+        type: 'commitDetails',
+        commit: commitInfo.all[0],
+        changedFiles,
+        diff: commitData
+      });
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Git details error: ${err.message}`);
+    }
+  }
+
+  private async getChangedFilesForCommit(hash: string) {
+    try {
+      const git = this.git;
+      const result = await git.raw(['show', '--name-status', hash]);
+      
+      return result.split('\n')
+        .filter(line => line.trim())
+        .map(line => {
+          const [status, file] = line.split('\t', 2);
+          return { status: status.charAt(0), file };
+        });
+    } catch {
+      return [];
+    }
+  }
+
+  private async cherryPickCommit(hash: string) {
+    try {
+      await this.git.raw(['cherry-pick', hash]);
+      vscode.window.showInformationMessage(`Cherry-picked commit ${hash.substring(0, 7)}`);
+      this.refreshFileList();
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Cherry-pick failed: ${err.message}`);
+    }
+  }
+
+  private async revertCommit(hash: string) {
+    try {
+      await this.git.revert(hash);
+      vscode.window.showInformationMessage(`Reverted commit ${hash.substring(0, 7)}`);
+      this.refreshFileList();
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Revert failed: ${err.message}`);
+    }
+  }
+
+  private async resetToCommit(hash: string) {
+    try {
+      await this.git.raw(['reset', '--hard', hash]);
+      vscode.window.showInformationMessage(`Reset to commit ${hash.substring(0, 7)}`);
+      this.refreshFileList();
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Reset failed: ${err.message}`);
+    }
+  }
+
+  private async compareCommits() {
+    vscode.window.showInformationMessage('Compare commits - feature coming soon!');
   }
 
   /* ── clean‑up when extension is deactivated ──────────────────────── */

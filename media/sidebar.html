@@ -505,6 +505,203 @@
       margin-bottom: 12px;
       box-sizing: border-box;
     }
+
+    /* ── Local History Styles ───────────────────────────── */
+    .local-history-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-gap: 12px;
+      height: calc(100vh - 80px);
+      margin-bottom: 20px;
+    }
+
+    .revisions-pane, .diff-pane, .branches-pane, .commits-pane, .detail-pane {
+      border: 1px solid #444;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .pane-header {
+      background: #2b2d30;
+      border-bottom: 1px solid #444;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .section-label {
+      font-weight: 600;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .revisions-list, .commits-list, .changed-files-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      overflow-y: auto;
+      height: calc(100vh - 150px);
+    }
+
+    .revision-item, .commit-item, .changed-file-item {
+      padding: 8px 12px;
+      border-bottom: 1px solid #333;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .revision-item:hover, .commit-item:hover, .changed-file-item:hover {
+      background: #333;
+    }
+
+    .revision-item.selected, .commit-item.selected {
+      background: #264F78;
+    }
+
+    .revision-timestamp, .commit-hash {
+      color: #888;
+      font-size: 11px;
+      font-family: monospace;
+    }
+
+    .revision-label, .commit-message {
+      flex: 1;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .diff-content {
+      padding: 12px;
+      height: calc(100vh - 120px);
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+
+    .diff-line {
+      margin: 1px 0;
+      padding: 1px 4px;
+    }
+
+    .diff-added { background: rgba(137, 209, 133, 0.2); }
+    .diff-removed { background: rgba(244, 135, 113, 0.2); }
+    .diff-context { color: #ccc; }
+
+    .local-history-actions, .git-graph-actions {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .local-history-actions button, .git-graph-actions button {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: #2b2d30;
+      color: var(--text);
+      border: 1px solid #444;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .local-history-actions button:hover, .git-graph-actions button:hover {
+      background: var(--blue);
+    }
+
+    /* ── Git Graph Styles ───────────────────────────── */
+    .git-graph-layout {
+      display: grid;
+      grid-template-columns: 200px 1fr 300px;
+      grid-gap: 12px;
+      height: calc(100vh - 80px);
+      margin-bottom: 20px;
+    }
+
+    .branches-content {
+      padding: 8px;
+      color: var(--text);
+      height: calc(100vh - 150px);
+      overflow-y: auto;
+    }
+
+    .branch-item {
+      padding: 6px 8px;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .branch-item:hover {
+      background: #333;
+    }
+
+    .branch-item.current {
+      background: var(--blue);
+      color: white;
+    }
+
+    .detail-pane {
+      border: 1px solid #444;
+      border-radius: 4px;
+      overflow: hidden;
+      height: calc(50vh - 40px);
+    }
+
+    .details-layout {
+      display: grid;
+      grid-template-rows: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .commit-details {
+      padding: 12px;
+      height: calc(50vh - 80px);
+      overflow-y: auto;
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    .commit-hash {
+      font-family: monospace;
+      background: #333;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .graph-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .graph-controls input {
+      padding: 4px 6px;
+      font-size: 12px;
+      background: #2b2d30;
+      border: 1px solid #444;
+      color: var(--text);
+      border-radius: 3px;
+      width: 150px;
+    }
+
+    #historySearch, #commitSearch {
+      padding: 4px 6px;
+      font-size: 12px;
+      background: #2b2d30;
+      border: 1px solid #444;
+      color: var(--text);
+      border-radius: 3px;
+      width: 100%;
+      margin-top: 4px;
+    }
   </style>
 </head>
 
@@ -514,6 +711,8 @@
     <div id="tabs">
       <button id="tabCommit" class="tab active">Commit</button>
       <button id="tabShelf" class="tab">Branches</button>
+      <button id="tabLocalHistory" class="tab">Local History</button>
+      <button id="tabGitGraph" class="tab">Git Graph</button>
     </div>
     <div id="commitPanel" class="panel">
       <!-- ── Toolbar ─────────────────────────────────────────── -->
@@ -616,6 +815,112 @@
         </div>
       </div>
     </div>
+
+    <!-- ── Local History Panel ───────────────────────────── -->
+    <div id="localHistoryPanel" class="panel" style="display:none;">
+      <div class="local-history-layout">
+        <!-- Left pane: revisions -->
+        <div class="revisions-pane">
+          <div class="pane-header">
+            <div class="section-label">Local History</div>
+            <input type="text" id="historySearch" placeholder="Search revisions or content..." />
+          </div>
+          <ul id="revisionsList" class="revisions-list"></ul>
+        </div>
+        
+        <!-- Right pane: diff -->
+        <div class="diff-pane">
+          <div class="pane-header">
+            <div class="section-label">Diff</div>
+          </div>
+          <div id="diffContent" class="diff-content">
+            <p class="placeholder">Select a revision to see diff</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- ── Local History Actions ───────────────────────────── -->
+      <div class="local-history-actions">
+        <button id="btnShowAllHistory" title="Show Full History">
+          <i class="codicon codicon-history"></i>
+          <span>Show All History</span>
+        </button>
+        <button id="btnPutLabel" title="Put Label">
+          <i class="codicon codicon-tag"></i>
+          <span>Put Label</span>
+        </button>
+        <button id="btnClearHistory" title="Clear History">
+          <i class="codicon codicon-trash"></i>
+          <span>Clear History</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Git Graph Panel ───────────────────────────── -->
+    <div id="gitGraphPanel" class="panel" style="display:none;">
+      <div class="git-graph-layout">
+        <!-- Left pane: branches -->
+        <div class="branches-pane">
+          <div class="pane-header">
+            <div class="section-label">Branches</div>
+          </div>
+          <div id="branchesContent" class="branches-content"></div>
+        </div>
+        
+        <!-- Center pane: commits graph -->
+        <div class="commits-pane">
+          <div class="pane-header">
+            <div class="section-label">Commits</div>
+            <div class="graph-controls">
+              <input type="text" id="commitSearch" placeholder="Search commits..." />
+              <button id="btnRefreshGraph" title="Refresh"><i class="codicon codicon-refresh"></i></button>
+            </div>
+          </div>
+          <ul id="commitsList" class="commits-list"></ul>
+        </div>
+        
+        <!-- Right panes: changed files and details -->
+        <div class="details-layout">
+          <!-- Changed Files pane -->
+          <div class="detail-pane">
+            <div class="pane-header">
+              <div class="section-label">Changed Files</div>
+            </div>
+            <ul id="changedFilesList" class="changed-files-list"></ul>
+          </div>
+          
+          <!-- Commit Details pane -->
+          <div class="detail-pane">
+            <div class="pane-header">
+              <div class="section-label">Commit Details</div>
+            </div>
+            <div id="commitDetails" class="commit-details">
+              <p class="placeholder">Select a commit to see details</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- ── Git Graph Actions ───────────────────────────── -->
+      <div class="git-graph-actions">
+        <button id="btnCherryPick" title="Cherry-pick commit">
+          <i class="codicon codicon-plugin"></i>
+          <span>Cherry-pick</span>
+        </button>
+        <button id="btnRevert" title="Revert commit">
+          <i class="codicon codicon-diff-reviewed"></i>
+          <span>Revert</span>
+        </button>
+        <button id="btnReset" title="Reset to here">
+          <i class="codicon codicon-diff-ignored"></i>
+          <span>Reset</span>
+        </button>
+        <button id="btnCompareCommits" title="Compare commits">
+          <i class="codicon codicon-compare-changes"></i>
+          <span>Compare</span>
+        </button>
+      </div>
+    </div>
     <!-- ── new branch modal ───────────────────────────── -->
     <div id="newBranchOverlay" hidden>
       <div id="newBranchBox">
@@ -652,24 +957,54 @@
     const untrackedChevron = document.getElementById('untrackedChevron');
     const tabCommit = document.getElementById('tabCommit');
     const tabShelf = document.getElementById('tabShelf');
+    const tabLocalHistory = document.getElementById('tabLocalHistory');
+    const tabGitGraph = document.getElementById('tabGitGraph');
     const commitPanel = document.getElementById('commitPanel');
     const shelfPanel = document.getElementById('shelfPanel');
+    const localHistoryPanel = document.getElementById('localHistoryPanel');
+    const gitGraphPanel = document.getElementById('gitGraphPanel');
     const shelfList = document.getElementById('shelfList');
 
     function switchTab(which) {
       const commit = which === 'commit';
-      commitPanel.style.display = commit ? 'grid' : 'none';
-      shelfPanel.style.display = commit ? 'none' : 'block';
+      const shelf = which === 'shelf';
+      const localHistory = which === 'localHistory';
+      const gitGraph = which === 'gitGraph';
+      
+      // Hide all panels
+      commitPanel.style.display = 'none';
+      shelfPanel.style.display = 'none';
+      localHistoryPanel.style.display = 'none';
+      gitGraphPanel.style.display = 'none';
+      
+      // Show selected panel
+      if (commit) commitPanel.style.display = 'grid';
+      else if (shelf) shelfPanel.style.display = 'block';
+      else if (localHistory) localHistoryPanel.style.display = 'block';
+      else if (gitGraph) gitGraphPanel.style.display = 'block';
+      
+      // Update active tabs
       tabCommit.classList.toggle('active', commit);
-      tabShelf.classList.toggle('active', !commit);
+      tabShelf.classList.toggle('active', shelf);
+      tabLocalHistory.classList.toggle('active', localHistory);
+      tabGitGraph.classList.toggle('active', gitGraph);
+      
+      // Load data for specific tabs
       if (commit) {
         vscode.postMessage({ type: 'requestBranches' });
-      } else {
+      } else if (shelf) {
         vscode.postMessage({ type: 'requestShelf' });
+      } else if (localHistory) {
+        vscode.postMessage({ type: 'requestLocalHistory' });
+      } else if (gitGraph) {
+        vscode.postMessage({ type: 'requestGitGraph' });
       }
     }
+    
     tabCommit.addEventListener('click', () => switchTab('commit'));
     tabShelf.addEventListener('click', () => switchTab('shelf'));
+    tabLocalHistory.addEventListener('click', () => switchTab('localHistory'));
+    tabGitGraph.addEventListener('click', () => switchTab('gitGraph'));
 
 
     const selectedFiles = new Set();
@@ -793,6 +1128,101 @@
           shelfList.appendChild(li);
         });
         return;
+      }
+
+      // ── Local History messages ─────────────────────────────────────────
+      else if (msg.type === 'localHistoryList') {
+        const revisionsList = document.getElementById('revisionsList');
+        revisionsList.innerHTML = '';
+        
+        if (!msg.revisions.length) {
+          const li = document.createElement('li');
+          li.innerHTML = '<div class="revision-label">No local history available</div>';
+          li.style.padding = '12px';
+          li.style.color = '#888';
+          revisionsList.appendChild(li);
+          return;
+        }
+
+        msg.revisions.forEach(revision => {
+          const li = document.createElement('li');
+          li.className = 'revision-item';
+          li.dataset.revisionId = revision.id;
+          
+          const timestamp = new Date(revision.timestamp).toLocaleString();
+          li.innerHTML = `
+            <div class="revision-timestamp">${timestamp}</div>
+            <div class="revision-label">${revision.label}</div>
+          `;
+          revisionsList.appendChild(li);
+        });
+      }
+      else if (msg.type === 'revisionDiff') {
+        const diffContent = document.getElementById('diffContent');
+        diffContent.innerHTML = `
+          <div style="padding: 8px; background: #333; margin-bottom: 8px; border-radius: 3px;">
+            <strong>${msg.label}</strong>
+          </div>
+          <div style="white-space: pre-wrap; font-family: monospace; font-size: 12px;">${msg.diff}</div>
+        `;
+      }
+
+      // ── Git Graph messages ─────────────────────────────────────────
+      else if (msg.type === 'gitGraphData') {
+        displayBranches(msg.branches);
+        displayCommits(msg.commits);
+      }
+      else if (msg.type === 'commitDetails') {
+        const commitDetails = document.getElementById('commitDetails');
+        const changedFilesList = document.getElementById('changedFilesList');
+        
+        // Display commit details
+        const commit = msg.commit;
+        commitDetails.innerHTML = `
+          <div style="margin-bottom: 8px;">
+            <strong>Hash:</strong> <span class="commit-hash">${commit.hash.substring(0, 7)}</span>
+          </div>
+          <div style="margin-bottom: 8px;">
+            <strong>Author:</strong> ${commit.author_name}
+          </div>
+          <div style="margin-bottom: 8px;">
+            <strong>Date:</strong> ${new Date(commit.date).toLocaleString()}
+          </div>
+          <div style="margin-bottom: 8px;">
+            <strong>Message:</strong><br>
+            <div style="margin-top: 4px; padding: 4px; background: #333; border-radius: 3px; font-size: 11px;">
+              ${commit.message.split('\n').join('<br>')}
+            </div>
+          </div>
+        `;
+
+        // Display changed files
+        changedFilesList.innerHTML = '';
+        if (msg.changedFiles && msg.changedFiles.length > 0) {
+          msg.changedFiles.forEach(changedFile => {
+            const li = document.createElement('li');
+            li.className = 'changed-file-item';
+            
+            const statusColors = {
+              'A': '#4caf50', // added
+              'M': '#2196f3', // modified  
+              'D': '#f44336', // deleted
+              'C': '#ff9800'  // copied
+            };
+            
+            li.innerHTML = `
+              <div style="color: ${statusColors[changedFile.status] || '#888'}; width: 16px; text-align: center;">
+                ${changedFile.status || '?'}
+              </div>
+              <span>${changedFile.file}</span>
+            `;
+            changedFilesList.appendChild(li);
+          });
+        } else {
+          const li = document.createElement('li');
+          li.innerHTML = '<div style="color: #888; padding: 12px;">No changed files</div>';
+          changedFilesList.appendChild(li);
+        }
       }
 
     });
@@ -1111,6 +1541,181 @@
       }
     });
 
+    // ── Local History functionality ─────────────────────────────
+    let selectedRevision = null;
+    const revisionsList = document.getElementById('revisionsList');
+    const diffContent = document.getElementById('diffContent');
+    const historySearch = document.getElementById('historySearch');
+
+    // Event handlers for Local History
+    document.getElementById('btnShowAllHistory')?.addEventListener('click', () => {
+      vscode.postMessage({ type: 'showAllHistory' });
+    });
+
+    document.getElementById('btnPutLabel')?.addEventListener('click', () => {
+      const label = prompt('Enter label for current file:');
+      if (label) {
+        vscode.postMessage({ type: 'putHistoryLabel', label });
+      }
+    });
+
+    document.getElementById('btnClearHistory')?.addEventListener('click', () => {
+      if (confirm('Are you sure you want to clear local history?')) {
+        vscode.postMessage({ type: 'clearLocalHistory' });
+      }
+    });
+
+    // Handle revision selection
+    revisionsList.addEventListener('click', (e) => {
+      const revisionItem = e.target.closest('.revision-item');
+      if (revisionItem) {
+        // Remove previous selection
+        document.querySelectorAll('.revision-item.selected').forEach(item => 
+          item.classList.remove('selected'));
+        
+        // Add selection to clicked item
+        revisionItem.classList.add('selected');
+        selectedRevision = revisionItem.dataset.revisionId;
+        
+        vscode.postMessage({ 
+          type: 'selectRevision', 
+          revisionId: selectedRevision 
+        });
+      }
+    });
+
+    // Search functionality
+    historySearch.addEventListener('input', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      Array.from(revisionsList.children).forEach(revisionItem => {
+        const label = revisionItem.querySelector('.revision-label').textContent.toLowerCase();
+        revisionItem.style.display = label.includes(searchTerm) ? 'flex' : 'none';
+      });
+    });
+
+    // ── Git Graph functionality ─────────────────────────────
+    let selectedCommit = null;
+    const commitsList = document.getElementById('commitsList');
+    const changedFilesList = document.getElementById('changedFilesList');
+    const commitDetails = document.getElementById('commitDetails');
+    const branchesContent = document.getElementById('branchesContent');
+    const commitSearch = document.getElementById('commitSearch');
+
+    // Event handlers for Git Graph actions
+    document.getElementById('btnCherryPick')?.addEventListener('click', () => {
+      if (selectedCommit) {
+        vscode.postMessage({ type: 'cherryPickCommit', hash: selectedCommit });
+      }
+    });
+
+    document.getElementById('btnRevert')?.addEventListener('click', () => {
+      if (selectedCommit) {
+        vscode.postMessage({ type: 'revertCommit', hash: selectedCommit });
+      }
+    });
+
+    document.getElementById('btnReset')?.addEventListener('click', () => {
+      if (selectedCommit) {
+        const confirmed = confirm(`Reset current branch to ${selectedCommit.substring(0, 7)}?\nThis will move your current branch.`);
+        if (confirmed) {
+          vscode.postMessage({ type: 'resetToCommit', hash: selectedCommit });
+        }
+      }
+    });
+
+    document.getElementById('btnCompareCommits')?.addEventListener('click', () => {
+      vscode.postMessage({ type: 'compareCommits' });
+    });
+
+    document.getElementById('btnRefreshGraph')?.addEventListener('click', () => {
+      vscode.postMessage({ type: 'requestGitGraph' });
+    });
+
+    // Handle commit selection
+    commitsList.addEventListener('click', (e) => {
+      const commitItem = e.target.closest('.commit-item');
+      if (commitItem) {
+        // Remove previous selection
+        document.querySelectorAll('.commit-item.selected').forEach(item => 
+          item.classList.remove('selected'));
+        
+        // Add selection to clicked item
+        commitItem.classList.add('selected');
+        selectedCommit = commitItem.dataset.commitHash;
+        
+        vscode.postMessage({ 
+          type: 'selectCommit', 
+          hash: selectedCommit 
+        });
+      }
+    });
+
+    // Search functionality for commits
+    commitSearch.addEventListener('input', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+      Array.from(commitsList.children).forEach(commitItem => {
+        const message = commitItem.querySelector('.commit-message').textContent.toLowerCase();
+        const hash = commitItem.querySelector('.commit-hash').textContent.toLowerCase();
+        commitItem.style.display = 
+          (message.includes(searchTerm) || hash.includes(searchTerm)) ? 'flex' : 'none';
+      });
+    });
+
+    // ── Git Graph helper functions ───────────────────────────────────
+    function displayBranches(branches) {
+      const branchesContent = document.getElementById('branchesContent');
+      branchesContent.innerHTML = '';
+
+      // Local branches
+      if (branches.locals && branches.locals.length > 0) {
+        branches.locals.forEach(branch => {
+          const div = document.createElement('div');
+          div.className = `branch-item ${branch === branches.current ? 'current' : ''}`;
+          div.innerHTML = `<i class="codicon codicon-git-branch"></i> ${branch}`;
+          branchesContent.appendChild(div);
+        });
+      }
+
+      // Remote branches (separated)
+      if (branches.remotes && branches.remotes.length > 0) {
+        const remoteDiv = document.createElement('div');
+        remoteDiv.innerHTML = '<div style="padding: 8px; font-weight: bold; color: #888; border-top: 1px solid #444; margin-top: 8px;">Remote branches</div>';
+        branchesContent.appendChild(remoteDiv);
+
+        branches.remotes.forEach(branch => {
+          const div = document.createElement('div');
+          div.className = 'branch-item';
+          div.innerHTML = `<i class="codicon codicon-cloud"></i> ${branch}`;
+          branchesContent.appendChild(div);
+        });
+      }
+    }
+
+    function displayCommits(commits) {
+      const commitsList = document.getElementById('commitsList');
+      commitsList.innerHTML = '';
+
+      if (!commits.length) {
+        const li = document.createElement('li');
+        li.innerHTML = '<div style="color: #888; padding: 12px;">No commits found</div>';
+        commitsList.appendChild(li);
+        return;
+      }
+
+      commits.forEach(commit => {
+        const li = document.createElement('li');
+        li.className = 'commit-item';
+        li.dataset.commitHash = commit.hash;
+        
+        const date = new Date(commit.date).toLocaleDateString();
+        li.innerHTML = `
+          <div class="commit-hash">${commit.hash.substring(0, 7)}</div>
+          <div class="commit-message">${commit.message}</div>
+          <div style="color: #888; font-size: 11px;">${commit.author} • ${date}</div>
+        `;
+        commitsList.appendChild(li);
+      });
+    }
 
   </script>
 </body>
